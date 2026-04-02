@@ -1,5 +1,6 @@
 package com.course.rest.webservices.restful_web_services.user;
 
+import com.course.rest.webservices.restful_web_services.jpa.PostRepository;
 import com.course.rest.webservices.restful_web_services.jpa.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.hateoas.EntityModel;
@@ -20,8 +21,12 @@ public class UserJpaResource {
 
     private UserRepository repository;
 
-    public UserJpaResource(UserRepository repository) {
+    private PostRepository postRepository;
+
+    public UserJpaResource(UserRepository repository, PostRepository postRepository) {
+
         this.repository=repository;
+        this.postRepository=postRepository;
     }
 
     // GET /users
@@ -47,14 +52,19 @@ public class UserJpaResource {
         return entityModel;
     }
 
-    @PostMapping("/jpa/users")
-    public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
+    @PostMapping("/jpa/users/{id}/posts")
+    public ResponseEntity<Object> createPostForUser(@PathVariable int id, @Valid @RequestBody Post post) {
+        Optional<User> user = repository.findById(id);
 
-        User savedUser = repository.save(user);
+        if(user.isEmpty())
+            throw new UserNotFoundException("id:"+id);
+
+        post.setUser(user.get());
+        Post savedPost = postRepository.save(post);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(savedUser.getId())
+                .buildAndExpand(savedPost.getId())
                 .toUri();
 
         return ResponseEntity.created(location).build();
@@ -63,6 +73,16 @@ public class UserJpaResource {
     @DeleteMapping("/jpa/users/{id}")
     public void deleteUser(@PathVariable int id){
         repository.deleteById(id);
+    }
+
+    @GetMapping("/jpa/users/{id}/posts")
+    public List<Post> retrievePostForUser(@PathVariable int id){
+        Optional<User> user = repository.findById(id);
+
+        if(user.isEmpty())
+            throw new UserNotFoundException("id:"+id);
+
+        return user.get().getPosts();
     }
 
 }
